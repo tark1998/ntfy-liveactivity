@@ -166,6 +166,22 @@ func ParsePriority(priority string) (int, error) {
 	}
 }
 
+func ParseActivity (activity string) (int, error) {
+	p := strings.TrimSpace(strings.ToLower(activity))
+	switch p {
+	case "":
+		return 0, nil
+	case "1", "start":
+		return 1, nil
+	case "2", "update":
+		return 2, nil
+	case "3", "end":
+		return 3, nil
+	default:
+		return 0, errInvalidPriority
+	}
+}
+
 // PriorityString converts a priority number to a string
 func PriorityString(priority int) (string, error) {
 	switch priority {

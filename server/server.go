@@ -50,6 +50,7 @@ type Server struct {
 	topics            map[string]*topic
 	visitors          map[string]*visitor // ip:<ip> or user:<user>
 	firebaseClient    *firebaseClient
+	apnsClient        *apnsClient
 	messages          int64                               // Total number of messages (persisted if messageCache enabled)
 	messagesHistory   []int64                             // Last n values of the messages counter, used to determine rate
 	userManager       *user.Manager                       // Might be nil!
@@ -60,6 +61,8 @@ type Server struct {
 	priceCache        *util.LookupCache[map[string]int64] // Stripe price ID -> price as cents (USD implied!)
 	metricsHandler    http.Handler                        // Handles /metrics if enable-metrics set, and listen-metrics-http not set
 	closeChan         chan bool
+	P2STokens         P2SToken
+	P2UTokens         P2UToken
 	mu                sync.RWMutex
 }
 
@@ -85,6 +88,8 @@ var (
 	accountPath                                          = "/account"
 	matrixPushPath                                       = "/_matrix/push/v1/notify"
 	metricsPath                                          = "/metrics"
+	apiP2STokenPath                                      = "/api/push-to-start-token"
+	apiP2UTokenPath                                      = "/api/push-to-update-token"
 	apiHealthPath                                        = "/v1/health"
 	apiStatsPath                                         = "/v1/stats"
 	apiWebPushPath                                       = "/v1/webpush"
@@ -208,12 +213,15 @@ func New(conf *Config) (*Server, error) {
 		}
 		firebaseClient = newFirebaseClient(sender, auther)
 	}
+	var apnsClient *apnsClient
+	apnsClient = newapnsClient()
 	s := &Server{
 		config:          conf,
 		messageCache:    messageCache,
 		webPush:         webPush,
 		fileCache:       fileCache,
 		firebaseClient:  firebaseClient,
+		apnsClient:      apnsClient,
 		smtpSender:      mailer,
 		topics:          topics,
 		userManager:     userManager,
@@ -535,6 +543,10 @@ func (s *Server) handleInternal(w http.ResponseWriter, r *http.Request, v *visit
 		return s.limitRequests(s.authorizeTopicRead(s.handleSubscribeWS))(w, r, v)
 	} else if r.Method == http.MethodGet && authPathRegex.MatchString(r.URL.Path) {
 		return s.limitRequests(s.authorizeTopicRead(s.handleTopicAuth))(w, r, v)
+	} else if r.Method == http.MethodPost && apiP2STokenPath == r.URL.Path {
+		return s.ensureWebEnabled(s.handleP2SToken)(w, r, v)
+	} else if r.Method == http.MethodPost && apiP2UTokenPath == r.URL.Path {
+		return s.ensureWebEnabled(s.handleP2UToken)(w, r, v)
 	} else if r.Method == http.MethodGet && (topicPathRegex.MatchString(r.URL.Path) || externalTopicPathRegex.MatchString(r.URL.Path)) {
 		return s.ensureWebEnabled(s.handleTopic)(w, r, v)
 	}
@@ -556,6 +568,32 @@ func (s *Server) handleTopic(w http.ResponseWriter, r *http.Request, v *visitor)
 	}
 	r.URL.Path = webAppIndex
 	return s.handleStatic(w, r, v)
+}
+
+func (s *Server) handleP2UToken(w http.ResponseWriter, r *http.Request, v *visitor) error {
+    m, err := readJSONWithLimit[P2UToken](r.Body, s.config.MessageSizeLimit*2, false) // 2x to account for JSON format overhead
+    if err != nil {
+        return err
+    }
+    fmt.Println(m.Token)
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.P2UTokens.Token = m.Token
+
+    return nil
+}
+
+func (s *Server) handleP2SToken(w http.ResponseWriter, r *http.Request, v *visitor) error {
+	m, err := readJSONWithLimit[P2SToken](r.Body, s.config.MessageSizeLimit*2, false) // 2x to account for JSON format overhead
+	if err != nil {
+		return err
+	}
+	fmt.Println(m.Token)
+	s.mu.Lock()
+    defer s.mu.Unlock()
+    s.P2STokens.Token = m.Token
+
+	return nil
 }
 
 func (s *Server) handleEmpty(_ http.ResponseWriter, _ *http.Request, _ *visitor) error {
@@ -748,6 +786,9 @@ func (s *Server) handlePublishInternal(r *http.Request, v *visitor) (*message, e
 	}
 	m := newDefaultMessage(t.ID, "")
 	cache, firebase, email, call, template, unifiedpush, e := s.parsePublishParams(r, m)
+	if m.Activity!=0 {
+		m.Event = liveActivityEvent
+	}
 	if e != nil {
 		return nil, e.With(t)
 	}
@@ -805,7 +846,11 @@ func (s *Server) handlePublishInternal(r *http.Request, v *visitor) (*message, e
 			return nil, err
 		}
 		if s.firebaseClient != nil && firebase {
-			go s.sendToFirebase(v, m)
+			if m.Event == liveActivityEvent{
+				go s.sendToAPNSLiveActivity(v, m)
+			}else{
+				go s.sendToFirebase(v, m)
+			}
 		}
 		if s.smtpSender != nil && email != "" {
 			go s.sendEmail(v, m, email)
@@ -891,6 +936,14 @@ func (s *Server) sendToFirebase(v *visitor, m *message) {
 	minc(metricFirebasePublishedSuccess)
 }
 
+func (s *Server) sendToAPNSLiveActivity(v *visitor, m *message) {
+	logvm(v, m).Tag(tagapns).Debug("Publishing to Apns")
+	if err := s.apnsClient.Send(v, m, s.P2STokens, s.P2UTokens); err != nil {
+		logvm(v, m).Tag(tagapns).Err(err).Debug("Unable to publish to Apns: %v", err.Error())
+		return
+	}
+	return
+}
 func (s *Server) sendEmail(v *visitor, m *message, email string) {
 	logvm(v, m).Tag(tagEmail).Field("email", email).Debug("Sending email to %s", email)
 	if err := s.smtpSender.Send(v, m, email); err != nil {
@@ -987,6 +1040,7 @@ func (s *Server) parsePublishParams(r *http.Request, m *message) (cache bool, fi
 	}
 	var e error
 	m.Priority, e = util.ParsePriority(readParam(r, "x-priority", "priority", "prio", "p"))
+	m.Activity, e = util.ParseActivity(readParam(r, "x-activity", "activity"))
 	if e != nil {
 		return false, false, "", "", false, false, errHTTPBadRequestPriorityInvalid
 	}

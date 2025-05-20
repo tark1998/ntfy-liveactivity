@@ -11,7 +11,7 @@
 # - iOS push notifications for self-hosted servers (to calculate the Firebase poll_request topic)
 # - Matrix Push Gateway (to validate that the pushkey is correct)
 #
-# base-url:
+base-url: https://mybaseurl.com:58080
 
 # Listen address for the HTTP & HTTPS web server. If "listen-https" is set, you must also
 # set "key-file" and "cert-file". Format: [<ip>]:<port>, e.g. "1.2.3.4:8080".
@@ -19,7 +19,7 @@
 # To listen on all interfaces, you may omit the IP address, e.g. ":443".
 # To disable HTTP, set "listen-http" to "-".
 #
-# listen-http: ":80"
+listen-http: "localhost:8080"
 # listen-https:
 
 # Listen on a Unix socket, e.g. /var/lib/ntfy/ntfy.sock
@@ -36,7 +36,7 @@
 # If set, also publish messages to a Firebase Cloud Messaging (FCM) topic for your app.
 # This is optional and only required to save battery when using the Android app.
 #
-# firebase-key-file: <filename>
+firebase-key-file: /etc/ntfy/firebase.json
 
 # If "cache-file" is set, messages are cached in a local SQLite database instead of only in-memory.
 # This allows for service restarts without losing messages in support of the since= parameter.
@@ -101,7 +101,7 @@
 # WARNING: If you are behind a proxy, you must set this, otherwise all visitors are rate limited
 #          as if they are one.
 #
-# behind-proxy: false
+behind-proxy: true
 
 # If enabled, clients can attach files to notifications as attachments. Minimum settings to enable attachments
 # are "attachment-cache-dir" and "base-url".

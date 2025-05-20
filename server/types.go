@@ -17,6 +17,7 @@ const (
 	keepaliveEvent   = "keepalive"
 	messageEvent     = "message"
 	pollRequestEvent = "poll_request"
+	liveActivityEvent = "live_activity"
 )
 
 const (
@@ -43,6 +44,7 @@ type message struct {
 	Encoding    string      `json:"encoding,omitempty"`     // empty for raw UTF-8, or "base64" for encoded bytes
 	Sender      netip.Addr  `json:"-"`                      // IP address of uploader, used for rate limiting
 	User        string      `json:"-"`                      // UserID of the uploader, used to associated attachments
+	Activity    int         `json:"activity"`
 }
 
 func (m *message) Context() log.Context {
@@ -106,6 +108,18 @@ type publishMessage struct {
 	Email    string   `json:"email"`
 	Call     string   `json:"call"`
 	Delay    string   `json:"delay"`
+}
+
+type P2SToken struct {
+    Token    string   `json:"token"`
+}
+
+type P2UToken struct {
+    Token    string   `json:"token"`
+}
+
+type JWToken struct {
+    Token    string   `json:"token"`
 }
 
 // messageEncoder is a function that knows how to encode a message

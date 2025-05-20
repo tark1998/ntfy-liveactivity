@@ -351,7 +351,7 @@ func (c *messageCache) addMessages(ms []*message) error {
 	}
 	defer stmt.Close()
 	for _, m := range ms {
-		if m.Event != messageEvent {
+		if m.Event != messageEvent && m.Event != liveActivityEvent {
 			return errUnexpectedMessageType
 		}
 		published := m.Time <= time.Now().Unix()

@@ -18,6 +18,7 @@ const (
 	tagPublish      = "publish"
 	tagSubscribe    = "subscribe"
 	tagFirebase     = "firebase"
+	tagapns         = "apns"
 	tagSMTP         = "smtp"  // Receive email
 	tagEmail        = "email" // Send email
 	tagTwilio       = "twilio"
