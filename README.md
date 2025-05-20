@@ -11,10 +11,10 @@ See [ntfy-liveactivity-ios](https://github.com/tark1998/ntfy-liveactivity-ios) t
 2. Save the firebase private key and Apple Authkey file under `/etc/ntfy/`
 3. Edit `newapnsClient` function in `server/server_apns.go` matching with previous Apple Authkey and TeamID
 3. Configure `/etc/ntfy/server.yml`. For example, see `server/server.yml`
-  1. base-url: url and port that used for connection from outside of the proxy
-  2. listen-http: url and port that used for connection from inside of the proxy
-  3. firebase-key-file: location and file name of firbase private key
-  4. behind-proxy: true
+    1. base-url: url and port that used for connection from outside of the proxy
+    2. listen-http: url and port that used for connection from inside of the proxy
+    3. firebase-key-file: location and file name of firbase private key
+    4. behind-proxy: true
 
 # How to publish
 
