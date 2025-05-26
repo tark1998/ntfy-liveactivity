@@ -1,5 +1,5 @@
 # ntfy-liveactivity
-This is a fork of [ntfy](https://github.com/tark1998/ntfy-liveactivity) with iOS Live activity.
+This is a fork of [ntfy](https://github.com/binwiederhier/ntfy) with iOS Live activity.
 
 See [ntfy-liveactivity-ios](https://github.com/tark1998/ntfy-liveactivity-ios) to build iOS app for the custom ntfy server.
 
@@ -7,14 +7,16 @@ See [ntfy-liveactivity-ios](https://github.com/tark1998/ntfy-liveactivity-ios) t
 
 # How to setup
 
-1. Follow the [Firebase setup](https://docs.ntfy.sh/develop/#firebase-setup) and [APNS setup](https://docs.ntfy.sh/develop/#apple-setup) 
+1. Follow the [APNS setup](https://docs.ntfy.sh/develop/#apple-setup) and [Firebase setup](https://docs.ntfy.sh/develop/#firebase-setup)  
+    - when create the APNS keys, select environments as `Sandbox & Production`
+    - and select `ENABLE` of `Apple Push Notifications service (APNs)`
 2. Save the firebase private key and Apple Authkey file under `/etc/ntfy/`
 3. Edit `newapnsClient` function in `server/server_apns.go` matching with previous Apple Authkey and TeamID
 3. Configure `/etc/ntfy/server.yml`. For example, see `server/server.yml`
-    1. base-url: url and port that used for connection from outside of the proxy
-    2. listen-http: url and port that used for connection from inside of the proxy
-    3. firebase-key-file: location and file name of firbase private key
-    4. behind-proxy: true
+    - `base-url`: url and port that used for connection from outside of the proxy
+    - `listen-http`: url and port that used for connection from inside of the proxy
+    - `firebase-key-file`: location and file name of firebase private key
+    - `behind-proxy`: true (optional)
 
 # How to publish
 
