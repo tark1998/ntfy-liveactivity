@@ -10,7 +10,7 @@ import (
 )
 
 type apnsClient struct {
-	JWToken *token.Token
+	client *apns2.Client
 }
 func newapnsClient() *apnsClient {
 	authKey, err := token.AuthKeyFromFile("/etc/ntfy/AuthKey_XXX.p8")
@@ -24,8 +24,9 @@ func newapnsClient() *apnsClient {
 		// TeamID from developer account (View Account -> Membership)
 		TeamID:  "DEF123GHIJ",
 	}
+	client := apns2.NewTokenClient(token)
 	return &apnsClient{
-		JWToken: token,
+		client: client,
 	}
 }
 func (c *apnsClient) Send(v *visitor, m *message, P2STokens P2SToken, P2UTokens P2UToken) error {
@@ -86,8 +87,7 @@ func (c *apnsClient) Send(v *visitor, m *message, P2STokens P2SToken, P2UTokens 
 		}`,time.Now().Unix(), m.Message, time.Now().Unix()+10))*/
 	}
 
-	client := apns2.NewTokenClient(c.JWToken)
-	res, err := client.Push(notification)
+	res, err := c.client.Push(notification)
 
 	if err != nil {
 		log.Fatal("Error:", err)
